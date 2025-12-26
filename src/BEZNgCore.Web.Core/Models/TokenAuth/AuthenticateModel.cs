@@ -27,5 +27,7 @@ public class AuthenticateModel
 
     [DisableAuditing]
     public string CaptchaResponse { get; set; }
+
+    public string TenantName { get; set; }
 }
 

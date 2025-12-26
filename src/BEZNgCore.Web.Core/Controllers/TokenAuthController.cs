@@ -1,3 +1,51 @@
+using Abp;
+using Abp.AspNetCore.Mvc.Authorization;
+using Abp.AspNetZeroCore.Web.Authentication.External;
+using Abp.Authorization;
+using Abp.Authorization.Users;
+using Abp.Configuration;
+using Abp.Domain.Repositories;
+using Abp.Extensions;
+using Abp.Localization;
+using Abp.MultiTenancy;
+using Abp.Net.Mail;
+using Abp.Notifications;
+using Abp.Runtime.Caching;
+using Abp.Runtime.Security;
+using Abp.Runtime.Session;
+using Abp.Runtime.Validation;
+using Abp.Timing;
+using Abp.UI;
+using Abp.Zero.Configuration;
+using BEZNgCore.Authentication.TwoFactor;
+using BEZNgCore.Authentication.TwoFactor.Google;
+using BEZNgCore.Authorization;
+using BEZNgCore.Authorization.Accounts;
+using BEZNgCore.Authorization.Accounts.Dto;
+using BEZNgCore.Authorization.Delegation;
+using BEZNgCore.Authorization.Impersonation;
+using BEZNgCore.Authorization.PasswordlessLogin;
+using BEZNgCore.Authorization.QrLogin;
+using BEZNgCore.Authorization.Roles;
+using BEZNgCore.Authorization.Users;
+using BEZNgCore.Configuration;
+using BEZNgCore.Identity;
+using BEZNgCore.IRepairIAppService.Dto;
+using BEZNgCore.IrepairModel;
+using BEZNgCore.MultiTenancy;
+using BEZNgCore.Net.Sms;
+using BEZNgCore.Notifications;
+using BEZNgCore.Security.Recaptcha;
+using BEZNgCore.Web.Authentication.External;
+using BEZNgCore.Web.Authentication.JwtBearer;
+using BEZNgCore.Web.Authentication.TwoFactor;
+using BEZNgCore.Web.Common;
+using BEZNgCore.Web.Models.TokenAuth;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
@@ -5,56 +53,13 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
-using Abp;
-using Abp.AspNetCore.Mvc.Authorization;
-using Abp.AspNetZeroCore.Web.Authentication.External;
-using Abp.Authorization;
-using Abp.Authorization.Users;
-using Abp.MultiTenancy;
-using Abp.Configuration;
-using Abp.Extensions;
-using Abp.Localization;
-using Abp.Net.Mail;
-using Abp.Notifications;
-using Abp.Runtime.Caching;
-using Abp.Runtime.Security;
-using Abp.Runtime.Session;
-using Abp.Timing;
-using Abp.UI;
-using Abp.Zero.Configuration;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using BEZNgCore.Authentication.TwoFactor;
-using BEZNgCore.Authentication.TwoFactor.Google;
-using BEZNgCore.Authorization;
-using BEZNgCore.Authorization.Accounts.Dto;
-using BEZNgCore.Authorization.Users;
-using BEZNgCore.MultiTenancy;
-using BEZNgCore.Web.Authentication.JwtBearer;
-using BEZNgCore.Web.Authentication.TwoFactor;
-using BEZNgCore.Web.Models.TokenAuth;
-using BEZNgCore.Authorization.Impersonation;
-using BEZNgCore.Authorization.Roles;
-using BEZNgCore.Configuration;
-using BEZNgCore.Identity;
-using BEZNgCore.Net.Sms;
-using BEZNgCore.Notifications;
-using BEZNgCore.Security.Recaptcha;
-using BEZNgCore.Web.Authentication.External;
-using BEZNgCore.Web.Common;
-using BEZNgCore.Authorization.Delegation;
-using Abp.Runtime.Validation;
-using Microsoft.AspNetCore.SignalR;
-using BEZNgCore.Authorization.PasswordlessLogin;
-using BEZNgCore.Authorization.QrLogin;
 
 namespace BEZNgCore.Web.Controllers;
 
 [Route("api/[controller]/[action]")]
 public class TokenAuthController : BEZNgCoreControllerBase
 {
+    private const string UserIdentifierClaimType = "http://aspnetzero.com/claims/useridentifier";
     private readonly LogInManager _logInManager;
     private readonly ITenantCache _tenantCache;
     private readonly AbpLoginResultTypeHelper _abpLoginResultTypeHelper;
@@ -82,6 +87,13 @@ public class TokenAuthController : BEZNgCoreControllerBase
 
     public IRecaptchaValidator RecaptchaValidator { get; set; }
 
+    private readonly LogInManagerNew _logInManagernew;
+    private readonly IRepository<History, Guid> _historyRepository;
+    private readonly IRepository<Staff, Guid> _staffRepository;
+    private readonly IAccountAppService _accountAppService;
+
+    private readonly IAppConfigurationAccessor _configurationAccessor;
+
     public TokenAuthController(
         LogInManager logInManager,
         ITenantCache tenantCache,
@@ -107,7 +119,12 @@ public class TokenAuthController : BEZNgCoreControllerBase
         IUserDelegationManager userDelegationManager,
         IPasswordlessLoginManager passwordlessLoginManager,
         IQrLoginManager qrLoginManager,
-        SignInManager signInManager)
+        SignInManager signInManager,
+        LogInManagerNew logInManagerNew,
+            IRepository<History, Guid> historyRepository,
+            IRepository<Staff, Guid> staffRepository,
+            IAccountAppService accountAppService,
+            IAppConfigurationAccessor configurationAccessor)
     {
         _logInManager = logInManager;
         _tenantCache = tenantCache;
@@ -134,6 +151,11 @@ public class TokenAuthController : BEZNgCoreControllerBase
         _userDelegationManager = userDelegationManager;
         _passwordlessLoginManager = passwordlessLoginManager;
         _qrLoginManager = qrLoginManager;
+        _logInManagernew = logInManagerNew;
+        _historyRepository = historyRepository;
+        _staffRepository = staffRepository;
+        _accountAppService = accountAppService;
+        _configurationAccessor = configurationAccessor;
     }
 
     private async Task<string> EncryptQueryParameters(long userId, Tenant tenant, string passwordResetCode)
@@ -217,7 +239,7 @@ public class TokenAuthController : BEZNgCoreControllerBase
                 };
             }
 
-            twoFactorRememberClientToken = await TwoFactorAuthenticateAsync(loginResult, model);
+            twoFactorRememberClientToken = await TwoFactorAuthenticateAsync(loginResult.User, model);
         }
 
         // One Concurrent Login 
@@ -254,7 +276,1319 @@ public class TokenAuthController : BEZNgCoreControllerBase
             ReturnUrl = returnUrl
         };
     }
+    #region IRepair
+    [HttpPost]
+    public async Task<AuthenticateResultModel> AuthenticatePINMobileIR([FromBody] AuthenticateModel model)
+    {
+        if (UseCaptchaOnLogin())
+        {
+            await ValidateReCaptcha(model.CaptchaResponse);
+        }
+        if (model.TenantName != null)
+        {
+            var isTenantAvailable = await _accountAppService.IsTenantAvailable(new IsTenantAvailableInput
+            {
+                TenancyName = model.TenantName
+            });
 
+            switch (isTenantAvailable.State)
+            {
+                case TenantAvailabilityState.InActive:
+                    throw new UserFriendlyException(L("TenantIsNotActive", model.TenantName));
+                case TenantAvailabilityState.NotFound:
+                    throw new UserFriendlyException(L("ThereIsNoTenantDefinedWithName{0}", model.TenantName));
+            }
+        }
+
+        if (!string.IsNullOrEmpty(model.Password) && !IsDigitsOnly(model.UserNameOrEmailAddress))
+        {
+            var loginResult = await GetLoginResultAsync(
+            model.UserNameOrEmailAddress,
+            model.Password,
+            model.TenantName
+        //GetTenancyNameOrNull()
+        );
+            var returnUrl = model.ReturnUrl;
+
+            if (model.SingleSignIn.HasValue && model.SingleSignIn.Value &&
+                loginResult.Result == AbpLoginResultType.Success)
+            {
+                loginResult.User.SetSignInToken();
+                returnUrl = AddSingleSignInParametersToReturnUrl(model.ReturnUrl, loginResult.User.SignInToken,
+                    loginResult.User.Id, loginResult.User.TenantId);
+            }
+
+            //Password reset
+            if (loginResult.User.ShouldChangePasswordOnNextLogin)
+            {
+                loginResult.User.SetNewPasswordResetCode();
+                return new AuthenticateResultModel
+                {
+                    ShouldResetPassword = true,
+                    PasswordResetCode = loginResult.User.PasswordResetCode,
+                    UserId = loginResult.User.Id,
+                    ReturnUrl = returnUrl
+                };
+            }
+
+            //Two factor auth
+            await _userManager.InitializeOptionsAsync(loginResult.Tenant?.Id);
+
+            string twoFactorRememberClientToken = null;
+            if (await IsTwoFactorAuthRequiredAsync(loginResult, model))
+            {
+                if (model.TwoFactorVerificationCode.IsNullOrEmpty())
+                {
+                    //Add a cache item which will be checked in SendTwoFactorAuthCode to prevent sending unwanted two factor code to users.
+                    await _cacheManager
+                        .GetTwoFactorCodeCache()
+                        .SetAsync(
+                            loginResult.User.ToUserIdentifier().ToString(),
+                            new TwoFactorCodeCacheItem()
+                        );
+
+                    return new AuthenticateResultModel
+                    {
+                        RequiresTwoFactorVerification = true,
+                        UserId = loginResult.User.Id,
+                        TwoFactorAuthProviders = await _userManager.GetValidTwoFactorProvidersAsync(loginResult.User),
+                        ReturnUrl = returnUrl
+                    };
+                }
+
+                twoFactorRememberClientToken = await TwoFactorAuthenticateAsync(loginResult.User, model);
+            }
+
+            // One Concurrent Login 
+            if (AllowOneConcurrentLoginPerUser())
+            {
+                await _userManager.UpdateSecurityStampAsync(loginResult.User);
+                await _securityStampHandler.SetSecurityStampCacheItem(loginResult.User.TenantId, loginResult.User.Id,
+                    loginResult.User.SecurityStamp);
+                loginResult.Identity.ReplaceClaim(new Claim(AppConsts.SecurityStampKey,
+                    loginResult.User.SecurityStamp));
+            }
+
+            var refreshToken = CreateRefreshToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+                tokenType: TokenType.RefreshToken));
+            var accessToken = CreateAccessToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+                refreshTokenKey: refreshToken.key));
+            bool IsAdmin = false;
+            if (loginResult.User.StaffKey != Guid.Empty)
+            {
+                using (UnitOfWorkManager.Current.SetTenantId(loginResult.Tenant?.Id))
+                {
+                    var Sec_Supervisor = _staffRepository.GetAll()
+                    .Where(x => x.Id == loginResult.User.StaffKey)
+                    .Select(x => x.Sec_Supervisor).FirstOrDefault();
+                    if (Sec_Supervisor != null)
+                    {
+                        if (Sec_Supervisor.Value == 10)
+                            IsAdmin = true;
+                    }
+
+                }
+
+
+                CreateOrEditHistoryDto input = new CreateOrEditHistoryDto();
+                input.StaffKey = loginResult.User.StaffKey;
+                input.Sort = 0;
+                input.Sync = 0;
+                input.TableName = "Staff";
+                input.ModuleName = "iRepair";
+                input.ChangedDate = DateTime.Now;
+                input.Operation = "L";
+                input.Id = null;
+                input.Detail = "(iRepair) " + loginResult.User.UserName + " login from mobile device";
+
+                var history = ObjectMapper.Map<History>(input);
+
+                if (loginResult.Tenant != null)//AbpSession.TenantId != null)
+                {
+                    history.TenantId = loginResult.Tenant?.Id;//(int?)AbpSession.TenantId;
+                }
+
+                await _historyRepository.InsertAsync(history);
+            }
+            return new AuthenticateResultModel
+            {
+                AccessToken = accessToken,
+                ExpireInSeconds = (int)_configuration.AccessTokenExpiration.TotalSeconds,
+                RefreshToken = refreshToken.token,
+                RefreshTokenExpireInSeconds = (int)_configuration.RefreshTokenExpiration.TotalSeconds,
+                EncryptedAccessToken = GetEncryptedAccessToken(accessToken),
+                TwoFactorRememberClientToken = twoFactorRememberClientToken,
+                UserId = loginResult.User.Id,
+                ReturnUrl = returnUrl
+                //StaffKey = loginResult.User.StaffKey,
+                //UserName = loginResult.User.UserName,
+                //IsAdmin = IsAdmin
+
+            };
+        }
+        else
+        {
+
+
+            var loginResult = await GetLoginResultNewIRAsync(
+                model.UserNameOrEmailAddress,
+                model.Password,
+                model.TenantName
+            //GetTenancyNameOrNull()
+            );
+            var returnUrl = model.ReturnUrl;
+
+            if (model.SingleSignIn.HasValue && model.SingleSignIn.Value &&
+                loginResult.Result == AbpLoginResultType.Success)
+            {
+                loginResult.User.SetSignInToken();
+                returnUrl = AddSingleSignInParametersToReturnUrl(model.ReturnUrl, loginResult.User.SignInToken,
+                    loginResult.User.Id, loginResult.User.TenantId);
+            }
+
+            //Password reset
+            if (loginResult.User.ShouldChangePasswordOnNextLogin)
+            {
+                loginResult.User.SetNewPasswordResetCode();
+                return new AuthenticateResultModel
+                {
+                    ShouldResetPassword = true,
+                    PasswordResetCode = loginResult.User.PasswordResetCode,
+                    UserId = loginResult.User.Id,
+                    ReturnUrl = returnUrl
+                };
+            }
+
+            //Two factor auth
+            await _userManager.InitializeOptionsAsync(loginResult.Tenant?.Id);
+
+            string twoFactorRememberClientToken = null;
+            if (await IsTwoFactorAuthRequiredAsync(loginResult, model))
+            {
+                if (model.TwoFactorVerificationCode.IsNullOrEmpty())
+                {
+                    //Add a cache item which will be checked in SendTwoFactorAuthCode to prevent sending unwanted two factor code to users.
+                    await _cacheManager
+                        .GetTwoFactorCodeCache()
+                        .SetAsync(
+                            loginResult.User.ToUserIdentifier().ToString(),
+                            new TwoFactorCodeCacheItem()
+                        );
+
+                    return new AuthenticateResultModel
+                    {
+                        RequiresTwoFactorVerification = true,
+                        UserId = loginResult.User.Id,
+                        TwoFactorAuthProviders = await _userManager.GetValidTwoFactorProvidersAsync(loginResult.User),
+                        ReturnUrl = returnUrl
+                    };
+                }
+
+                twoFactorRememberClientToken = await TwoFactorAuthenticateAsync(loginResult.User, model);
+            }
+
+            // One Concurrent Login 
+            if (AllowOneConcurrentLoginPerUser())
+            {
+                await _userManager.UpdateSecurityStampAsync(loginResult.User);
+                await _securityStampHandler.SetSecurityStampCacheItem(loginResult.User.TenantId, loginResult.User.Id,
+                    loginResult.User.SecurityStamp);
+                loginResult.Identity.ReplaceClaim(new Claim(AppConsts.SecurityStampKey,
+                    loginResult.User.SecurityStamp));
+            }
+
+            var refreshToken = CreateRefreshToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+                tokenType: TokenType.RefreshToken));
+            var accessToken = CreateAccessToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+                refreshTokenKey: refreshToken.key));
+            bool IsAdmin = false;
+            bool IsTechSupervisor = false;
+            bool IsBlockRoom = false;
+
+            bool SecIPSetUp = false;
+            bool SecIPViewLog = false;
+            bool SecIPAssignTasks = false;
+            bool SecIPBlockRoom = false;
+            if (loginResult.User.StaffKey != Guid.Empty)
+            {
+                using (UnitOfWorkManager.Current.SetTenantId(loginResult.Tenant?.Id))
+                {
+                    #region oldcode
+                    //var Sec_Supervisor = _staffRepository.GetAll()
+                    //.Where(x => x.Id == loginResult.User.StaffKey)
+                    //.Select(x => x.Sec_Supervisor).FirstOrDefault();
+                    //if (Sec_Supervisor != null)
+                    //{
+                    //    if (Sec_Supervisor.Value == 10)
+                    //        IsAdmin = true;
+                    //}
+                    //var Sec_TechSupervisor = _staffRepository.GetAll()
+                    //.Where(x => x.Id == loginResult.User.StaffKey)
+                    //.Select(x => x.Sec_TechSupervisor).FirstOrDefault();
+                    //if (Sec_TechSupervisor != null)
+                    //{
+                    //    if (Sec_TechSupervisor.Value == 10)
+                    //        IsTechSupervisor = true;
+                    //}
+                    //var Sec_BlockRoom = _staffRepository.GetAll()
+                    //.Where(x => x.Id == loginResult.User.StaffKey)
+                    //.Select(x => x.Sec_BlockRoom).FirstOrDefault();
+                    //if (Sec_BlockRoom != null)
+                    //{
+                    //    if (Sec_BlockRoom.Value == 10)
+                    //        IsBlockRoom = true;
+                    //}
+                    #endregion
+                    var accessstaff = _staffRepository.GetAll()
+            .Where(x => x.Id == loginResult.User.StaffKey)
+            .Select(x => new { x.Sec_Supervisor, x.Sec_TechSupervisor, x.Sec_BlockRoom, x.Sec_IPSetUp, x.Sec_IPViewLog, x.Sec_IPAssignTasks, x.Sec_IPBlockRoom })
+            .FirstOrDefault();
+
+                    if (accessstaff != null)
+                    {
+                        if (accessstaff.Sec_Supervisor.HasValue && accessstaff.Sec_Supervisor.Value == 10)
+                            IsAdmin = true;
+
+                        if (accessstaff.Sec_TechSupervisor.HasValue && accessstaff.Sec_TechSupervisor.Value == 10)
+                            IsTechSupervisor = true;
+
+                        if (accessstaff.Sec_BlockRoom.HasValue && accessstaff.Sec_BlockRoom.Value == 10)
+                            IsBlockRoom = true;
+
+                        if (accessstaff.Sec_IPSetUp.HasValue && accessstaff.Sec_IPSetUp.Value == 10)
+                            SecIPSetUp = true;
+
+                        if (accessstaff.Sec_IPViewLog.HasValue && accessstaff.Sec_IPViewLog.Value == 10)
+                            SecIPViewLog = true;
+
+                        if (accessstaff.Sec_IPAssignTasks.HasValue && accessstaff.Sec_IPAssignTasks.Value == 10)
+                            SecIPAssignTasks = true;
+
+                        if (accessstaff.Sec_IPBlockRoom.HasValue && accessstaff.Sec_IPBlockRoom.Value == 10)
+                            SecIPBlockRoom = true;
+                    }
+
+                }
+
+
+                CreateOrEditHistoryDto input = new CreateOrEditHistoryDto();
+                input.StaffKey = loginResult.User.StaffKey;
+                input.Sort = 0;
+                input.Sync = 0;
+                input.TableName = "Staff";
+                input.ModuleName = "iRepair";
+                input.ChangedDate = DateTime.Now;
+                input.Operation = "L";
+                input.Id = null;
+                input.Detail = "(iRepair) " + loginResult.User.UserName + " login from mobile device";
+
+                var history = ObjectMapper.Map<History>(input);
+
+                if (loginResult.Tenant != null)//AbpSession.TenantId != null)
+                {
+                    history.TenantId = loginResult.Tenant?.Id;//(int?)AbpSession.TenantId;
+                }
+
+                await _historyRepository.InsertAsync(history);
+            }
+            string Secound = _configurationAccessor.Configuration["Secound"];
+            return new AuthenticateResultModel
+            {
+                AccessToken = accessToken,
+                ExpireInSeconds = (int)_configuration.AccessTokenExpiration.TotalSeconds,
+                RefreshToken = refreshToken.token,
+                RefreshTokenExpireInSeconds = (int)_configuration.RefreshTokenExpiration.TotalSeconds,
+                EncryptedAccessToken = GetEncryptedAccessToken(accessToken),
+                TwoFactorRememberClientToken = twoFactorRememberClientToken,
+                UserId = loginResult.User.Id,
+                ReturnUrl = returnUrl
+                //StaffKey = loginResult.User.StaffKey,
+                //UserName = loginResult.User.UserName,
+                //IsAdmin = IsAdmin,
+                //IsTechSupervisor = IsTechSupervisor,
+                //IsBlockRoom = IsBlockRoom,
+                //SecIPSetUp = SecIPSetUp,
+                //SecIPViewLog = SecIPViewLog,
+                //SecIPAssignTasks = SecIPAssignTasks,
+                //SecIPBlockRoom = SecIPBlockRoom,
+                //refreshInterval = Convert.ToInt32(Secound)
+
+            };
+        }
+    }
+    private bool IsDigitsOnly(string str)
+    {
+        foreach (char c in str)
+        {
+            if (c < '0' || c > '9')
+                return false;
+        }
+
+        return true;
+    }
+    [HttpPost]
+    public async Task<AuthenticateResultModel> AuthenticatePINWebIR([FromBody] AuthenticateModel model)
+    {
+        if (UseCaptchaOnLogin())
+        {
+            await ValidateReCaptcha(model.CaptchaResponse);
+        }
+        if (model.TenantName != null)
+        {
+            var isTenantAvailable = await _accountAppService.IsTenantAvailable(new IsTenantAvailableInput
+            {
+                TenancyName = model.TenantName
+            });
+
+            switch (isTenantAvailable.State)
+            {
+                case TenantAvailabilityState.InActive:
+                    throw new UserFriendlyException(L("TenantIsNotActive", model.TenantName));
+                case TenantAvailabilityState.NotFound:
+                    throw new UserFriendlyException(L("ThereIsNoTenantDefinedWithName{0}", model.TenantName));
+            }
+        }
+        var loginResult = await GetLoginResultNewIRAsync(
+            model.UserNameOrEmailAddress,
+            model.Password,
+            model.TenantName
+        //GetTenancyNameOrNull()
+        );
+
+        var returnUrl = model.ReturnUrl;
+
+        if (model.SingleSignIn.HasValue && model.SingleSignIn.Value &&
+            loginResult.Result == AbpLoginResultType.Success)
+        {
+            loginResult.User.SetSignInToken();
+            returnUrl = AddSingleSignInParametersToReturnUrl(model.ReturnUrl, loginResult.User.SignInToken,
+                loginResult.User.Id, loginResult.User.TenantId);
+        }
+
+        //Password reset
+        if (loginResult.User.ShouldChangePasswordOnNextLogin)
+        {
+            loginResult.User.SetNewPasswordResetCode();
+            return new AuthenticateResultModel
+            {
+                ShouldResetPassword = true,
+                PasswordResetCode = loginResult.User.PasswordResetCode,
+                UserId = loginResult.User.Id,
+                ReturnUrl = returnUrl
+            };
+        }
+
+        //Two factor auth
+        await _userManager.InitializeOptionsAsync(loginResult.Tenant?.Id);
+
+        string twoFactorRememberClientToken = null;
+        if (await IsTwoFactorAuthRequiredAsync(loginResult, model))
+        {
+            if (model.TwoFactorVerificationCode.IsNullOrEmpty())
+            {
+                //Add a cache item which will be checked in SendTwoFactorAuthCode to prevent sending unwanted two factor code to users.
+                await _cacheManager
+                    .GetTwoFactorCodeCache()
+                    .SetAsync(
+                        loginResult.User.ToUserIdentifier().ToString(),
+                        new TwoFactorCodeCacheItem()
+                    );
+
+                return new AuthenticateResultModel
+                {
+                    RequiresTwoFactorVerification = true,
+                    UserId = loginResult.User.Id,
+                    TwoFactorAuthProviders = await _userManager.GetValidTwoFactorProvidersAsync(loginResult.User),
+                    ReturnUrl = returnUrl
+                };
+            }
+
+            twoFactorRememberClientToken = await TwoFactorAuthenticateAsync(loginResult.User, model);
+        }
+
+        // One Concurrent Login 
+        if (AllowOneConcurrentLoginPerUser())
+        {
+            await _userManager.UpdateSecurityStampAsync(loginResult.User);
+            await _securityStampHandler.SetSecurityStampCacheItem(loginResult.User.TenantId, loginResult.User.Id,
+                loginResult.User.SecurityStamp);
+            loginResult.Identity.ReplaceClaim(new Claim(AppConsts.SecurityStampKey,
+                loginResult.User.SecurityStamp));
+        }
+
+        var refreshToken = CreateRefreshToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+            tokenType: TokenType.RefreshToken));
+        var accessToken = CreateAccessToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+            refreshTokenKey: refreshToken.key));
+        bool IsAdmin = false;
+        bool IsTechSupervisor = false;
+        bool IsBlockRoom = false;
+
+
+        bool SecIPSetUp = false;
+        bool SecIPViewLog = false;
+        bool SecIPAssignTasks = false;
+        bool SecIPBlockRoom = false;
+        if (loginResult.User.StaffKey != Guid.Empty)
+        {
+            using (UnitOfWorkManager.Current.SetTenantId(loginResult.Tenant?.Id))
+            {
+                #region oldcode
+                //var Sec_Supervisor = _staffRepository.GetAll()
+                //.Where(x => x.Id == loginResult.User.StaffKey)
+                //.Select(x => x.Sec_Supervisor).FirstOrDefault();
+                //if (Sec_Supervisor != null)
+                //{
+                //    if (Sec_Supervisor.Value == 10)
+                //        IsAdmin = true;
+                //}
+                //var Sec_TechSupervisor = _staffRepository.GetAll()
+                //.Where(x => x.Id == loginResult.User.StaffKey)
+                //.Select(x => x.Sec_TechSupervisor).FirstOrDefault();
+                //if (Sec_TechSupervisor != null)
+                //{
+                //    if (Sec_TechSupervisor.Value == 10)
+                //        IsTechSupervisor = true;
+                //}
+                //var Sec_BlockRoom = _staffRepository.GetAll()
+                //.Where(x => x.Id == loginResult.User.StaffKey)
+                //.Select(x => x.Sec_BlockRoom).FirstOrDefault();
+                //if (Sec_BlockRoom != null)
+                //{
+                //    if (Sec_BlockRoom.Value == 10)
+                //        IsBlockRoom = true;
+                //}
+                #endregion
+                var accessstaff = _staffRepository.GetAll()
+        .Where(x => x.Id == loginResult.User.StaffKey)
+        .Select(x => new { x.Sec_Supervisor, x.Sec_TechSupervisor, x.Sec_BlockRoom, x.Sec_IPSetUp, x.Sec_IPViewLog, x.Sec_IPAssignTasks, x.Sec_IPBlockRoom })
+        .FirstOrDefault();
+
+                if (accessstaff != null)
+                {
+                    if (accessstaff.Sec_Supervisor.HasValue && accessstaff.Sec_Supervisor.Value == 10)
+                        IsAdmin = true;
+
+                    if (accessstaff.Sec_TechSupervisor.HasValue && accessstaff.Sec_TechSupervisor.Value == 10)
+                        IsTechSupervisor = true;
+
+                    if (accessstaff.Sec_BlockRoom.HasValue && accessstaff.Sec_BlockRoom.Value == 10)
+                        IsBlockRoom = true;
+
+                    if (accessstaff.Sec_IPSetUp.HasValue && accessstaff.Sec_IPSetUp.Value == 10)
+                        SecIPSetUp = true;
+
+                    if (accessstaff.Sec_IPViewLog.HasValue && accessstaff.Sec_IPViewLog.Value == 10)
+                        SecIPViewLog = true;
+
+                    if (accessstaff.Sec_IPAssignTasks.HasValue && accessstaff.Sec_IPAssignTasks.Value == 10)
+                        SecIPAssignTasks = true;
+
+                    if (accessstaff.Sec_IPBlockRoom.HasValue && accessstaff.Sec_IPBlockRoom.Value == 10)
+                        SecIPBlockRoom = true;
+                }
+
+            }
+
+
+            CreateOrEditHistoryDto input = new CreateOrEditHistoryDto();
+            input.StaffKey = loginResult.User.StaffKey;
+            input.Sort = 0;
+            input.Sync = 0;
+            input.TableName = "Staff";
+            input.ModuleName = "iRepair";
+            input.ChangedDate = DateTime.Now;
+            input.Operation = "L";
+            input.Id = null;
+            input.Detail = "(iRepair) " + loginResult.User.UserName + " login from web";
+
+            var history = ObjectMapper.Map<History>(input);
+
+            if (loginResult.Tenant != null)//AbpSession.TenantId != null)
+            {
+                history.TenantId = loginResult.Tenant?.Id;//(int?)AbpSession.TenantId;
+            }
+
+            await _historyRepository.InsertAsync(history);
+        }
+        string Secound = _configurationAccessor.Configuration["Secound"];
+        return new AuthenticateResultModel
+        {
+            AccessToken = accessToken,
+            ExpireInSeconds = (int)_configuration.AccessTokenExpiration.TotalSeconds,
+            RefreshToken = refreshToken.token,
+            RefreshTokenExpireInSeconds = (int)_configuration.RefreshTokenExpiration.TotalSeconds,
+            EncryptedAccessToken = GetEncryptedAccessToken(accessToken),
+            TwoFactorRememberClientToken = twoFactorRememberClientToken,
+            UserId = loginResult.User.Id,
+            ReturnUrl = returnUrl
+            //StaffKey = loginResult.User.StaffKey,
+            //UserName = loginResult.User.UserName,
+            //IsAdmin = IsAdmin,
+            //IsTechSupervisor = IsTechSupervisor,
+            //IsBlockRoom = IsBlockRoom,
+            //SecIPSetUp = SecIPSetUp,
+            //SecIPViewLog = SecIPViewLog,
+            //SecIPAssignTasks = SecIPAssignTasks,
+            //SecIPBlockRoom = SecIPBlockRoom,
+            //refreshInterval = Convert.ToInt32(Secound)
+
+        };
+    }
+
+    private async Task<AbpLoginResult<Tenant, User>> GetLoginResultNewIRAsync(string usernameOrEmailAddress,
+      string password, string tenancyName)
+    {
+        //tenancyName = "Default";//if tenantId is null no need
+        var loginResult = await _logInManagernew.LoginIRAsync(usernameOrEmailAddress, password, tenancyName);
+
+        switch (loginResult.Result)
+        {
+            case AbpLoginResultType.Success:
+                return loginResult;
+            default:
+                throw _abpLoginResultTypeHelper.CreateExceptionForFailedLoginAttempt(loginResult.Result,
+                    usernameOrEmailAddress, tenancyName);
+        }
+    }
+    #endregion
+    #region iclean
+    [HttpPost]
+    public async Task<AuthenticateResultModel> AuthenticatePINMobile([FromBody] AuthenticateModel model)
+    {
+        if (UseCaptchaOnLogin())
+        {
+            await ValidateReCaptcha(model.CaptchaResponse);
+        }
+        if (model.TenantName != null)
+        {
+            var isTenantAvailable = await _accountAppService.IsTenantAvailable(new IsTenantAvailableInput
+            {
+                TenancyName = model.TenantName
+            });
+
+            switch (isTenantAvailable.State)
+            {
+                case TenantAvailabilityState.InActive:
+                    throw new UserFriendlyException(L("TenantIsNotActive", model.TenantName));
+                case TenantAvailabilityState.NotFound:
+                    throw new UserFriendlyException(L("ThereIsNoTenantDefinedWithName{0}", model.TenantName));
+            }
+        }
+
+        if (!string.IsNullOrEmpty(model.Password) && !IsDigitsOnly(model.UserNameOrEmailAddress))
+        {
+            var loginResult = await GetLoginResultAsync(
+            model.UserNameOrEmailAddress,
+            model.Password,
+            model.TenantName
+        //GetTenancyNameOrNull()
+        );
+            var returnUrl = model.ReturnUrl;
+
+            if (model.SingleSignIn.HasValue && model.SingleSignIn.Value &&
+                loginResult.Result == AbpLoginResultType.Success)
+            {
+                loginResult.User.SetSignInToken();
+                returnUrl = AddSingleSignInParametersToReturnUrl(model.ReturnUrl, loginResult.User.SignInToken,
+                    loginResult.User.Id, loginResult.User.TenantId);
+            }
+
+            //Password reset
+            if (loginResult.User.ShouldChangePasswordOnNextLogin)
+            {
+                loginResult.User.SetNewPasswordResetCode();
+                return new AuthenticateResultModel
+                {
+                    ShouldResetPassword = true,
+                    PasswordResetCode = loginResult.User.PasswordResetCode,
+                    UserId = loginResult.User.Id,
+                    ReturnUrl = returnUrl
+                };
+            }
+
+            //Two factor auth
+            await _userManager.InitializeOptionsAsync(loginResult.Tenant?.Id);
+
+            string twoFactorRememberClientToken = null;
+            if (await IsTwoFactorAuthRequiredAsync(loginResult, model))
+            {
+                if (model.TwoFactorVerificationCode.IsNullOrEmpty())
+                {
+                    //Add a cache item which will be checked in SendTwoFactorAuthCode to prevent sending unwanted two factor code to users.
+                    await _cacheManager
+                        .GetTwoFactorCodeCache()
+                        .SetAsync(
+                            loginResult.User.ToUserIdentifier().ToString(),
+                            new TwoFactorCodeCacheItem()
+                        );
+
+                    return new AuthenticateResultModel
+                    {
+                        RequiresTwoFactorVerification = true,
+                        UserId = loginResult.User.Id,
+                        TwoFactorAuthProviders = await _userManager.GetValidTwoFactorProvidersAsync(loginResult.User),
+                        ReturnUrl = returnUrl
+                    };
+                }
+
+                twoFactorRememberClientToken = await TwoFactorAuthenticateAsync(loginResult.User, model);
+            }
+
+            // One Concurrent Login 
+            if (AllowOneConcurrentLoginPerUser())
+            {
+                await _userManager.UpdateSecurityStampAsync(loginResult.User);
+                await _securityStampHandler.SetSecurityStampCacheItem(loginResult.User.TenantId, loginResult.User.Id,
+                    loginResult.User.SecurityStamp);
+                loginResult.Identity.ReplaceClaim(new Claim(AppConsts.SecurityStampKey,
+                    loginResult.User.SecurityStamp));
+            }
+
+            var refreshToken = CreateRefreshToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+                tokenType: TokenType.RefreshToken));
+            var accessToken = CreateAccessToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+                refreshTokenKey: refreshToken.key));
+            bool IsAdmin = false;
+            if (loginResult.User.StaffKey != Guid.Empty)
+            {
+                using (UnitOfWorkManager.Current.SetTenantId(loginResult.Tenant?.Id))
+                {
+                    var Sec_Supervisor = _staffRepository.GetAll()
+                    .Where(x => x.Id == loginResult.User.StaffKey)
+                    .Select(x => x.Sec_Supervisor).FirstOrDefault();
+                    if (Sec_Supervisor != null)
+                    {
+                        if (Sec_Supervisor.Value == 10)
+                            IsAdmin = true;
+                    }
+
+                }
+
+
+                CreateOrEditHistoryDto input = new CreateOrEditHistoryDto();
+                input.StaffKey = loginResult.User.StaffKey;
+                input.Sort = 0;
+                input.Sync = 0;
+                input.TableName = "Staff";
+                input.ModuleName = "iClean";
+                input.ChangedDate = DateTime.Now;
+                input.Operation = "L";
+                input.Id = null;
+                input.Detail = "(iClean) " + loginResult.User.UserName + " login from mobile device";
+
+                var history = ObjectMapper.Map<History>(input);
+
+                if (loginResult.Tenant != null)//AbpSession.TenantId != null)
+                {
+                    history.TenantId = loginResult.Tenant?.Id;//(int?)AbpSession.TenantId;
+                }
+
+                await _historyRepository.InsertAsync(history);
+            }
+            return new AuthenticateResultModel
+            {
+                AccessToken = accessToken,
+                ExpireInSeconds = (int)_configuration.AccessTokenExpiration.TotalSeconds,
+                RefreshToken = refreshToken.token,
+                RefreshTokenExpireInSeconds = (int)_configuration.RefreshTokenExpiration.TotalSeconds,
+                EncryptedAccessToken = GetEncryptedAccessToken(accessToken),
+                TwoFactorRememberClientToken = twoFactorRememberClientToken,
+                UserId = loginResult.User.Id,
+                ReturnUrl = returnUrl
+                //StaffKey = loginResult.User.StaffKey,
+                //UserName = loginResult.User.UserName,
+                //IsAdmin = IsAdmin
+
+            };
+        }
+        else
+        {
+
+
+            var loginResult = await GetLoginResultNewAsync(
+                model.UserNameOrEmailAddress,
+                model.Password,
+                model.TenantName
+            //GetTenancyNameOrNull()
+            );
+            var returnUrl = model.ReturnUrl;
+
+            if (model.SingleSignIn.HasValue && model.SingleSignIn.Value &&
+                loginResult.Result == AbpLoginResultType.Success)
+            {
+                loginResult.User.SetSignInToken();
+                returnUrl = AddSingleSignInParametersToReturnUrl(model.ReturnUrl, loginResult.User.SignInToken,
+                    loginResult.User.Id, loginResult.User.TenantId);
+            }
+
+            //Password reset
+            if (loginResult.User.ShouldChangePasswordOnNextLogin)
+            {
+                loginResult.User.SetNewPasswordResetCode();
+                return new AuthenticateResultModel
+                {
+                    ShouldResetPassword = true,
+                    PasswordResetCode = loginResult.User.PasswordResetCode,
+                    UserId = loginResult.User.Id,
+                    ReturnUrl = returnUrl
+                };
+            }
+
+            //Two factor auth
+            await _userManager.InitializeOptionsAsync(loginResult.Tenant?.Id);
+
+            string twoFactorRememberClientToken = null;
+            if (await IsTwoFactorAuthRequiredAsync(loginResult, model))
+            {
+                if (model.TwoFactorVerificationCode.IsNullOrEmpty())
+                {
+                    //Add a cache item which will be checked in SendTwoFactorAuthCode to prevent sending unwanted two factor code to users.
+                    await _cacheManager
+                        .GetTwoFactorCodeCache()
+                        .SetAsync(
+                            loginResult.User.ToUserIdentifier().ToString(),
+                            new TwoFactorCodeCacheItem()
+                        );
+
+                    return new AuthenticateResultModel
+                    {
+                        RequiresTwoFactorVerification = true,
+                        UserId = loginResult.User.Id,
+                        TwoFactorAuthProviders = await _userManager.GetValidTwoFactorProvidersAsync(loginResult.User),
+                        ReturnUrl = returnUrl
+                    };
+                }
+
+                twoFactorRememberClientToken = await TwoFactorAuthenticateAsync(loginResult.User, model);
+            }
+
+            // One Concurrent Login 
+            if (AllowOneConcurrentLoginPerUser())
+            {
+                await _userManager.UpdateSecurityStampAsync(loginResult.User);
+                await _securityStampHandler.SetSecurityStampCacheItem(loginResult.User.TenantId, loginResult.User.Id,
+                    loginResult.User.SecurityStamp);
+                loginResult.Identity.ReplaceClaim(new Claim(AppConsts.SecurityStampKey,
+                    loginResult.User.SecurityStamp));
+            }
+
+            var refreshToken = CreateRefreshToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+                tokenType: TokenType.RefreshToken));
+            var accessToken = CreateAccessToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+                refreshTokenKey: refreshToken.key));
+
+            bool IsAdmin = false;
+
+            bool IsSupervisorB = false;
+            bool IsSupervisorMode = false;
+            bool IsRooms = false;
+            bool IsMiniBar = false;
+            bool IsMiniBarCo = false;
+            bool IsLaundry = false;
+            bool IsLostFound = false;
+            bool IsWOEntry = false;
+            bool IsViewLogs = false;
+            bool IsRoomstoInspect = false;
+            bool IsGuestRequest = false;
+            if (loginResult.User.StaffKey != Guid.Empty)
+            {
+                using (UnitOfWorkManager.Current.SetTenantId(loginResult.Tenant?.Id))
+                {
+
+                    var accessstaff = _staffRepository.GetAll()
+            .Where(x => x.Id == loginResult.User.StaffKey)
+            .Select(x => new { x.Sec_Supervisor, x.Sec_SupervisorB, x.Sec_SupervisorMode, x.Sec_Rooms, x.Sec_MiniBar, x.Sec_MiniBarCo, x.Sec_Laundry, x.Sec_LostFound, x.Sec_WOEntry, x.Sec_ViewLogs, x.Sec_RoomstoInspect, x.Sec_GuestRequest })
+            .FirstOrDefault();
+
+                    if (accessstaff != null)
+                    {
+                        if (accessstaff.Sec_Supervisor.HasValue && accessstaff.Sec_Supervisor.Value == 10)
+                            IsAdmin = true;
+
+                        if (accessstaff.Sec_SupervisorB.HasValue && accessstaff.Sec_SupervisorB.Value == 10)
+                            IsSupervisorB = true;
+
+                        if (accessstaff.Sec_SupervisorMode.HasValue && accessstaff.Sec_SupervisorMode.Value == 10)
+                            IsSupervisorMode = true;
+
+                        if (accessstaff.Sec_Rooms.HasValue && accessstaff.Sec_Rooms.Value == 10)
+                            IsRooms = true;
+
+                        if (accessstaff.Sec_MiniBar.HasValue && accessstaff.Sec_MiniBar.Value == 10)
+                            IsMiniBar = true;
+
+                        if (accessstaff.Sec_MiniBarCo.HasValue && accessstaff.Sec_MiniBarCo.Value == 10)
+                            IsMiniBarCo = true;
+
+                        if (accessstaff.Sec_Laundry.HasValue && accessstaff.Sec_Laundry.Value == 10)
+                            IsLaundry = true;
+
+                        if (accessstaff.Sec_LostFound.HasValue && accessstaff.Sec_LostFound.Value == 10)
+                            IsLostFound = true;
+
+                        if (accessstaff.Sec_WOEntry.HasValue && accessstaff.Sec_WOEntry.Value == 10)
+                            IsWOEntry = true;
+
+                        if (accessstaff.Sec_ViewLogs.HasValue && accessstaff.Sec_ViewLogs.Value == 10)
+                            IsViewLogs = true;
+
+                        if (accessstaff.Sec_RoomstoInspect.HasValue && accessstaff.Sec_RoomstoInspect.Value == 10)
+                            IsRoomstoInspect = true;
+
+                        if (accessstaff.Sec_GuestRequest.HasValue && accessstaff.Sec_GuestRequest.Value == 10)
+                            IsGuestRequest = true;
+                    }
+
+
+                }
+
+
+                CreateOrEditHistoryDto input = new CreateOrEditHistoryDto();
+                input.StaffKey = loginResult.User.StaffKey;
+                input.Sort = 0;
+                input.Sync = 0;
+                input.TableName = "Staff";
+                input.ModuleName = "iClean";
+                input.ChangedDate = DateTime.Now;
+                input.Operation = "L";
+                input.Id = null;
+                input.Detail = "(iClean) " + loginResult.User.UserName + " login from mobile device";
+
+                var history = ObjectMapper.Map<History>(input);
+
+                if (loginResult.Tenant != null)//AbpSession.TenantId != null)
+                {
+                    history.TenantId = loginResult.Tenant?.Id;//(int?)AbpSession.TenantId;
+                }
+
+                await _historyRepository.InsertAsync(history);
+            }
+            string Secound = _configurationAccessor.Configuration["Secound"];
+            return new AuthenticateResultModel
+            {
+                AccessToken = accessToken,
+                ExpireInSeconds = (int)_configuration.AccessTokenExpiration.TotalSeconds,
+                RefreshToken = refreshToken.token,
+                RefreshTokenExpireInSeconds = (int)_configuration.RefreshTokenExpiration.TotalSeconds,
+                EncryptedAccessToken = GetEncryptedAccessToken(accessToken),
+                TwoFactorRememberClientToken = twoFactorRememberClientToken,
+                UserId = loginResult.User.Id,
+                ReturnUrl = returnUrl
+                //StaffKey = loginResult.User.StaffKey,
+                //UserName = loginResult.User.UserName,
+                //IsAdmin = IsAdmin,
+                //SecSupervisorB = IsSupervisorB,
+                //SecSupervisorMode = IsSupervisorMode,
+                //SecRooms = IsRooms,
+                //SecMiniBar = IsMiniBar,
+                //SecMiniBarCo = IsMiniBarCo,
+                //SecLaundry = IsLaundry,
+                //SecLostFound = IsLostFound,
+                //SecWOEntry = IsWOEntry,
+                //SecViewLogs = IsViewLogs,
+                //SecRoomstoInspect = IsRoomstoInspect,
+                //SecGuestRequest = IsGuestRequest,
+                //refreshInterval = Convert.ToInt32(Secound)
+
+            };
+        }
+    }
+
+    private async Task<AbpLoginResult<Tenant, User>> GetLoginResultNewAsync(string usernameOrEmailAddress,
+          string password, string tenancyName)
+    {
+        //tenancyName = "Default";//if tenantId is null no need
+        var loginResult = await _logInManagernew.LoginAsync(usernameOrEmailAddress, password, tenancyName);
+
+        switch (loginResult.Result)
+        {
+            case AbpLoginResultType.Success:
+                return loginResult;
+            default:
+                throw _abpLoginResultTypeHelper.CreateExceptionForFailedLoginAttempt(loginResult.Result,
+                    usernameOrEmailAddress, tenancyName);
+        }
+    }
+    [HttpPost]
+    public async Task<AuthenticateResultModel> AuthenticatePINWeb([FromBody] AuthenticateModel model)
+    {
+        if (UseCaptchaOnLogin())
+        {
+            await ValidateReCaptcha(model.CaptchaResponse);
+        }
+        if (model.TenantName != null)
+        {
+            var isTenantAvailable = await _accountAppService.IsTenantAvailable(new IsTenantAvailableInput
+            {
+                TenancyName = model.TenantName
+            });
+
+            switch (isTenantAvailable.State)
+            {
+                case TenantAvailabilityState.InActive:
+                    throw new UserFriendlyException(L("TenantIsNotActive", model.TenantName));
+                case TenantAvailabilityState.NotFound:
+                    throw new UserFriendlyException(L("ThereIsNoTenantDefinedWithName{0}", model.TenantName));
+            }
+        }
+        var loginResult = await GetLoginResultNewAsync(
+            model.UserNameOrEmailAddress,
+            model.Password,
+            model.TenantName
+        //GetTenancyNameOrNull()
+        );
+
+        var returnUrl = model.ReturnUrl;
+
+        if (model.SingleSignIn.HasValue && model.SingleSignIn.Value &&
+            loginResult.Result == AbpLoginResultType.Success)
+        {
+            loginResult.User.SetSignInToken();
+            returnUrl = AddSingleSignInParametersToReturnUrl(model.ReturnUrl, loginResult.User.SignInToken,
+                loginResult.User.Id, loginResult.User.TenantId);
+        }
+
+        //Password reset
+        if (loginResult.User.ShouldChangePasswordOnNextLogin)
+        {
+            loginResult.User.SetNewPasswordResetCode();
+            return new AuthenticateResultModel
+            {
+                ShouldResetPassword = true,
+                PasswordResetCode = loginResult.User.PasswordResetCode,
+                UserId = loginResult.User.Id,
+                ReturnUrl = returnUrl
+            };
+        }
+
+        //Two factor auth
+        await _userManager.InitializeOptionsAsync(loginResult.Tenant?.Id);
+
+        string twoFactorRememberClientToken = null;
+        if (await IsTwoFactorAuthRequiredAsync(loginResult, model))
+        {
+            if (model.TwoFactorVerificationCode.IsNullOrEmpty())
+            {
+                //Add a cache item which will be checked in SendTwoFactorAuthCode to prevent sending unwanted two factor code to users.
+                await _cacheManager
+                    .GetTwoFactorCodeCache()
+                    .SetAsync(
+                        loginResult.User.ToUserIdentifier().ToString(),
+                        new TwoFactorCodeCacheItem()
+                    );
+
+                return new AuthenticateResultModel
+                {
+                    RequiresTwoFactorVerification = true,
+                    UserId = loginResult.User.Id,
+                    TwoFactorAuthProviders = await _userManager.GetValidTwoFactorProvidersAsync(loginResult.User),
+                    ReturnUrl = returnUrl
+                };
+            }
+
+            twoFactorRememberClientToken = await TwoFactorAuthenticateAsync(loginResult.User, model);
+        }
+
+        // One Concurrent Login 
+        if (AllowOneConcurrentLoginPerUser())
+        {
+            await _userManager.UpdateSecurityStampAsync(loginResult.User);
+            await _securityStampHandler.SetSecurityStampCacheItem(loginResult.User.TenantId, loginResult.User.Id,
+                loginResult.User.SecurityStamp);
+            loginResult.Identity.ReplaceClaim(new Claim(AppConsts.SecurityStampKey,
+                loginResult.User.SecurityStamp));
+        }
+
+        var refreshToken = CreateRefreshToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+            tokenType: TokenType.RefreshToken));
+        var accessToken = CreateAccessToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+            refreshTokenKey: refreshToken.key));
+        bool IsAdmin = false;
+
+        bool IsSupervisorB = false;
+        bool IsSupervisorMode = false;
+        bool IsRooms = false;
+        bool IsMiniBar = false;
+        bool IsMiniBarCo = false;
+        bool IsLaundry = false;
+        bool IsLostFound = false;
+        bool IsWOEntry = false;
+        bool IsViewLogs = false;
+        bool IsRoomstoInspect = false;
+        bool IsGuestRequest = false;
+        if (loginResult.User.StaffKey != Guid.Empty)
+        {
+
+            using (UnitOfWorkManager.Current.SetTenantId(loginResult.Tenant?.Id))
+            {
+                var accessstaff = _staffRepository.GetAll()
+            .Where(x => x.Id == loginResult.User.StaffKey)
+            .Select(x => new { x.Sec_Supervisor, x.Sec_SupervisorB, x.Sec_SupervisorMode, x.Sec_Rooms, x.Sec_MiniBar, x.Sec_MiniBarCo, x.Sec_Laundry, x.Sec_LostFound, x.Sec_WOEntry, x.Sec_ViewLogs, x.Sec_RoomstoInspect, x.Sec_GuestRequest })
+            .FirstOrDefault();
+
+                if (accessstaff != null)
+                {
+                    if (accessstaff.Sec_Supervisor.HasValue && accessstaff.Sec_Supervisor.Value == 10)
+                        IsAdmin = true;
+
+                    if (accessstaff.Sec_SupervisorB.HasValue && accessstaff.Sec_SupervisorB.Value == 10)
+                        IsSupervisorB = true;
+
+                    if (accessstaff.Sec_SupervisorMode.HasValue && accessstaff.Sec_SupervisorMode.Value == 10)
+                        IsSupervisorMode = true;
+
+                    if (accessstaff.Sec_Rooms.HasValue && accessstaff.Sec_Rooms.Value == 10)
+                        IsRooms = true;
+
+                    if (accessstaff.Sec_MiniBar.HasValue && accessstaff.Sec_MiniBar.Value == 10)
+                        IsMiniBar = true;
+
+                    if (accessstaff.Sec_MiniBarCo.HasValue && accessstaff.Sec_MiniBarCo.Value == 10)
+                        IsMiniBarCo = true;
+
+                    if (accessstaff.Sec_Laundry.HasValue && accessstaff.Sec_Laundry.Value == 10)
+                        IsLaundry = true;
+
+                    if (accessstaff.Sec_LostFound.HasValue && accessstaff.Sec_LostFound.Value == 10)
+                        IsLostFound = true;
+
+                    if (accessstaff.Sec_WOEntry.HasValue && accessstaff.Sec_WOEntry.Value == 10)
+                        IsWOEntry = true;
+
+                    if (accessstaff.Sec_ViewLogs.HasValue && accessstaff.Sec_ViewLogs.Value == 10)
+                        IsViewLogs = true;
+
+                    if (accessstaff.Sec_RoomstoInspect.HasValue && accessstaff.Sec_RoomstoInspect.Value == 10)
+                        IsRoomstoInspect = true;
+
+                    if (accessstaff.Sec_GuestRequest.HasValue && accessstaff.Sec_GuestRequest.Value == 10)
+                        IsGuestRequest = true;
+                }
+            }
+            CreateOrEditHistoryDto input = new CreateOrEditHistoryDto();
+            input.StaffKey = loginResult.User.StaffKey;
+            input.Sort = 0;
+            input.Sync = 0;
+            input.TableName = "Staff";
+            input.ModuleName = "iClean";
+            input.ChangedDate = DateTime.Now;
+            input.Operation = "L";
+            input.Id = null;
+            input.Detail = "(iClean) " + loginResult.User.UserName + " login from web";
+
+            var history = ObjectMapper.Map<History>(input);
+
+            if (loginResult.Tenant != null)//AbpSession.TenantId != null)
+            {
+                history.TenantId = loginResult.Tenant?.Id;//(int?)AbpSession.TenantId;
+            }
+
+            await _historyRepository.InsertAsync(history);
+        }
+        string Secound = _configurationAccessor.Configuration["Secound"];
+        return new AuthenticateResultModel
+        {
+            AccessToken = accessToken,
+            ExpireInSeconds = (int)_configuration.AccessTokenExpiration.TotalSeconds,
+            RefreshToken = refreshToken.token,
+            RefreshTokenExpireInSeconds = (int)_configuration.RefreshTokenExpiration.TotalSeconds,
+            EncryptedAccessToken = GetEncryptedAccessToken(accessToken),
+            TwoFactorRememberClientToken = twoFactorRememberClientToken,
+            UserId = loginResult.User.Id,
+            ReturnUrl = returnUrl
+            //StaffKey = loginResult.User.StaffKey,
+            //UserName = loginResult.User.UserName,
+            //IsAdmin = IsAdmin,
+            //SecSupervisorB = IsSupervisorB,
+            //SecSupervisorMode = IsSupervisorMode,
+            //SecRooms = IsRooms,
+            //SecMiniBar = IsMiniBar,
+            //SecMiniBarCo = IsMiniBarCo,
+            //SecLaundry = IsLaundry,
+            //SecLostFound = IsLostFound,
+            //SecWOEntry = IsWOEntry,
+            //SecViewLogs = IsViewLogs,
+            //SecRoomstoInspect = IsRoomstoInspect,
+            //SecGuestRequest = IsGuestRequest,
+            //refreshInterval = Convert.ToInt32(Secound)
+
+        };
+    }
+    #endregion
+
+    [HttpPost]
+    public async Task<AuthenticateResultModel> GetToken([FromBody] AuthenticateModel model)
+    {
+        string accessToken = "";
+        if (UseCaptchaOnLogin())
+        {
+            await ValidateReCaptcha(model.CaptchaResponse);
+        }
+        if (model.TenantName != null)
+        {
+            var isTenantAvailable = await _accountAppService.IsTenantAvailable(new IsTenantAvailableInput
+            {
+                TenancyName = model.TenantName
+            });
+
+            switch (isTenantAvailable.State)
+            {
+                case TenantAvailabilityState.InActive:
+                    throw new UserFriendlyException(L("TenantIsNotActive", model.TenantName));
+                case TenantAvailabilityState.NotFound:
+                    throw new UserFriendlyException(L("ThereIsNoTenantDefinedWithName{0}", model.TenantName));
+            }
+        }
+        if (model.UserNameOrEmailAddress.IsNullOrEmpty())
+        {
+            throw new ArgumentNullException(nameof(model.UserNameOrEmailAddress));
+        }
+        if (model.Password.IsNullOrEmpty())
+        {
+            throw new ArgumentNullException(nameof(model.Password));
+        }
+        if (!string.IsNullOrEmpty(model.Password) && !string.IsNullOrEmpty(model.UserNameOrEmailAddress))
+        {
+            var loginResult = await GetLoginResultGuestExchangeAsync(
+            model.UserNameOrEmailAddress,
+            model.Password,
+            model.TenantName
+        //GetTenancyNameOrNull()
+        );
+            var returnUrl = model.ReturnUrl;
+
+            if (model.SingleSignIn.HasValue && model.SingleSignIn.Value &&
+                loginResult.Result == AbpLoginResultType.Success)
+            {
+                loginResult.User.SetSignInToken();
+                returnUrl = AddSingleSignInParametersToReturnUrl(model.ReturnUrl, loginResult.User.SignInToken,
+                    loginResult.User.Id, loginResult.User.TenantId);
+            }
+
+            //Password reset
+            if (loginResult.User.ShouldChangePasswordOnNextLogin)
+            {
+                loginResult.User.SetNewPasswordResetCode();
+                return new AuthenticateResultModel
+                {
+                    ShouldResetPassword = true,
+                    PasswordResetCode = loginResult.User.PasswordResetCode,
+                    UserId = loginResult.User.Id,
+                    ReturnUrl = returnUrl
+                };
+            }
+
+            //Two factor auth
+            await _userManager.InitializeOptionsAsync(loginResult.Tenant?.Id);
+
+            string twoFactorRememberClientToken = null;
+            if (await IsTwoFactorAuthRequiredAsync(loginResult, model))
+            {
+                if (model.TwoFactorVerificationCode.IsNullOrEmpty())
+                {
+                    //Add a cache item which will be checked in SendTwoFactorAuthCode to prevent sending unwanted two factor code to users.
+                    await _cacheManager
+                        .GetTwoFactorCodeCache()
+                        .SetAsync(
+                            loginResult.User.ToUserIdentifier().ToString(),
+                            new TwoFactorCodeCacheItem()
+                        );
+
+                    return new AuthenticateResultModel
+                    {
+                        RequiresTwoFactorVerification = true,
+                        UserId = loginResult.User.Id,
+                        TwoFactorAuthProviders = await _userManager.GetValidTwoFactorProvidersAsync(loginResult.User),
+                        ReturnUrl = returnUrl
+                    };
+                }
+
+                twoFactorRememberClientToken = await TwoFactorAuthenticateAsync(loginResult.User, model);
+            }
+
+            // One Concurrent Login 
+            if (AllowOneConcurrentLoginPerUser())
+            {
+                await _userManager.UpdateSecurityStampAsync(loginResult.User);
+                await _securityStampHandler.SetSecurityStampCacheItem(loginResult.User.TenantId, loginResult.User.Id,
+                    loginResult.User.SecurityStamp);
+                loginResult.Identity.ReplaceClaim(new Claim(AppConsts.SecurityStampKey,
+                    loginResult.User.SecurityStamp));
+            }
+
+            var refreshToken = CreateRefreshToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+                tokenType: TokenType.RefreshToken));
+            accessToken = CreateAccessToken(await CreateJwtClaims(loginResult.Identity, loginResult.User,
+               refreshTokenKey: refreshToken.key));
+            bool IsAdmin = false;
+            if (loginResult.User.StaffKey != Guid.Empty)
+            {
+                using (UnitOfWorkManager.Current.SetTenantId(loginResult.Tenant?.Id))
+                {
+                    var Sec_Supervisor = _staffRepository.GetAll()
+                    .Where(x => x.Id == loginResult.User.StaffKey)
+                    .Select(x => x.Sec_Supervisor).FirstOrDefault();
+                    if (Sec_Supervisor != null)
+                    {
+                        if (Sec_Supervisor.Value == 10)
+                            IsAdmin = true;
+                    }
+
+                }
+                CreateOrEditHistoryDto input = new CreateOrEditHistoryDto();
+                input.StaffKey = loginResult.User.StaffKey;
+                input.Sort = 0;
+                input.Sync = 0;
+                input.TableName = "Staff";
+                input.ModuleName = "BezGuestExchange";
+                input.ChangedDate = DateTime.Now;
+                input.Operation = "L";
+                input.Id = null;
+                input.Detail = "(Guest Exchange) " + loginResult.User.UserName + " login from mobile device";
+
+                var history = ObjectMapper.Map<History>(input);
+
+                if (loginResult.Tenant != null)//AbpSession.TenantId != null)
+                {
+                    history.TenantId = loginResult.Tenant?.Id;//(int?)AbpSession.TenantId;
+                }
+
+                await _historyRepository.InsertAsync(history);
+            }
+
+        }
+
+        return new AuthenticateResultModel
+        {
+            AccessToken = accessToken,
+            // ExpireInSeconds = (int)_configuration.AccessTokenExpiration.TotalSeconds,
+            // RefreshToken = refreshToken.token,
+            // RefreshTokenExpireInSeconds = (int)_configuration.RefreshTokenExpiration.TotalSeconds,
+            EncryptedAccessToken = GetEncryptedAccessToken(accessToken)
+            // TwoFactorRememberClientToken = twoFactorRememberClientToken,
+            //UserId = loginResult.User.Id,
+            //ReturnUrl = returnUrl,
+            //StaffKey = loginResult.User.StaffKey,
+            //UserName = loginResult.User.UserName,
+            //IsAdmin = IsAdmin
+        };
+    }
+    private async Task<AbpLoginResult<Tenant, User>> GetLoginResultGuestExchangeAsync(string usernameOrEmailAddress,
+      string password, string tenancyName)
+    {
+        //tenancyName = "Default";//if tenantId is null no need
+        var loginResult = await _logInManagernew.LoginAsyncGuestExchange(usernameOrEmailAddress, password, tenancyName);
+
+        switch (loginResult.Result)
+        {
+            case AbpLoginResultType.Success:
+                return loginResult;
+            default:
+                throw _abpLoginResultTypeHelper.CreateExceptionForFailedLoginAttempt(loginResult.Result,
+                    usernameOrEmailAddress, tenancyName);
+        }
+    }
     [AbpAuthorize]
     [HttpPost]
     public async Task AuthenticateWithQrCode([FromBody] QrLoginAuthenticateModel model)
@@ -873,26 +2207,73 @@ public class TokenAuthController : BEZNgCoreControllerBase
     }
 
     /* Checkes two factor code and returns a token to remember the client (browser) if needed */
-    private async Task<string> TwoFactorAuthenticateAsync(AbpLoginResult<Tenant, User> loginResult,
-        AuthenticateModel authenticateModel)
+    //private async Task<string> TwoFactorAuthenticateAsync(AbpLoginResult<Tenant, User> loginResult,
+    //    AuthenticateModel authenticateModel)
+    //{
+    //    var twoFactorCodeCache = _cacheManager.GetTwoFactorCodeCache();
+    //    var userIdentifier = loginResult.User.ToUserIdentifier().ToString();
+    //    var cachedCode = await twoFactorCodeCache.GetOrDefaultAsync(userIdentifier);
+    //    var provider = _cacheManager.GetCache("ProviderCache").Get("Provider", cache => cache).ToString();
+
+    //    if (provider == GoogleAuthenticatorProvider.Name)
+    //    {
+    //        if (!await _googleAuthenticatorProvider.ValidateAsync("TwoFactor",
+    //                authenticateModel.TwoFactorVerificationCode, _userManager, loginResult.User))
+    //        {
+    //            await SaveTwoFactorFailedLoginAttempt(loginResult.Tenant, loginResult.User);
+    //            throw new UserFriendlyException(L("InvalidSecurityCode"));
+    //        }
+    //    }
+    //    else if (cachedCode?.Code == null || cachedCode.Code != authenticateModel.TwoFactorVerificationCode)
+    //    {
+    //        await SaveTwoFactorFailedLoginAttempt(loginResult.Tenant, loginResult.User);
+    //        throw new UserFriendlyException(L("InvalidSecurityCode"));
+    //    }
+
+    //    //Delete from the cache since it was a single usage code
+    //    await twoFactorCodeCache.RemoveAsync(userIdentifier);
+
+    //    if (authenticateModel.RememberClient)
+    //    {
+    //        if (await SettingManager.GetSettingValueAsync<bool>(AbpZeroSettingNames.UserManagement.TwoFactorLogin
+    //                .IsRememberBrowserEnabled))
+    //        {
+    //            return CreateAccessToken(
+    //                await CreateJwtClaims(
+    //                    loginResult.Identity,
+    //                    loginResult.User,
+    //                    tokenType: TokenType.TwoFactorRememberClientToken
+    //                ),
+    //                AppConsts.TwoFactorRememberClientTokenExpiration 
+    //            );
+    //        }
+    //    }
+
+    //    await _logInManager.SaveLoginAttemptAsync(
+    //        loginResult,
+    //        GetTenancyNameOrNull(),
+    //        loginResult.User.UserName
+    //    );
+
+    //    return null;
+    //}
+    private async Task<string> TwoFactorAuthenticateAsync(User user, AuthenticateModel authenticateModel)
     {
         var twoFactorCodeCache = _cacheManager.GetTwoFactorCodeCache();
-        var userIdentifier = loginResult.User.ToUserIdentifier().ToString();
+        var userIdentifier = user.ToUserIdentifier().ToString();
         var cachedCode = await twoFactorCodeCache.GetOrDefaultAsync(userIdentifier);
         var provider = _cacheManager.GetCache("ProviderCache").Get("Provider", cache => cache).ToString();
 
         if (provider == GoogleAuthenticatorProvider.Name)
         {
             if (!await _googleAuthenticatorProvider.ValidateAsync("TwoFactor",
-                    authenticateModel.TwoFactorVerificationCode, _userManager, loginResult.User))
+                authenticateModel.TwoFactorVerificationCode, _userManager, user))
             {
-                await SaveTwoFactorFailedLoginAttempt(loginResult.Tenant, loginResult.User);
                 throw new UserFriendlyException(L("InvalidSecurityCode"));
             }
         }
         else if (cachedCode?.Code == null || cachedCode.Code != authenticateModel.TwoFactorVerificationCode)
         {
-            await SaveTwoFactorFailedLoginAttempt(loginResult.Tenant, loginResult.User);
             throw new UserFriendlyException(L("InvalidSecurityCode"));
         }
 
@@ -902,28 +2283,19 @@ public class TokenAuthController : BEZNgCoreControllerBase
         if (authenticateModel.RememberClient)
         {
             if (await SettingManager.GetSettingValueAsync<bool>(AbpZeroSettingNames.UserManagement.TwoFactorLogin
-                    .IsRememberBrowserEnabled))
+                .IsRememberBrowserEnabled))
             {
-                return CreateAccessToken(
-                    await CreateJwtClaims(
-                        loginResult.Identity,
-                        loginResult.User,
-                        tokenType: TokenType.TwoFactorRememberClientToken
-                    ),
-                    AppConsts.TwoFactorRememberClientTokenExpiration 
+                return CreateAccessToken(new[]
+                    {
+                            new Claim(UserIdentifierClaimType, user.ToUserIdentifier().ToString())
+                        },
+                    TimeSpan.FromDays(365)
                 );
             }
         }
 
-        await _logInManager.SaveLoginAttemptAsync(
-            loginResult,
-            GetTenancyNameOrNull(),
-            loginResult.User.UserName
-        );
-
         return null;
     }
-
     private async Task SaveTwoFactorFailedLoginAttempt(Tenant tenant, User user)
     {
         var loginResult = new AbpLoginResult<Tenant, User>(AbpLoginResultType.FailedForOtherReason, tenant, user);
