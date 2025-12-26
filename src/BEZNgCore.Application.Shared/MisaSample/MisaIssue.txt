@@ -1,0 +1,123 @@
+﻿{
+  "SignType": 2, //mặc định là 2, vì đơn vị đang dùng là hóa đơn MTT, có ký điện tử HSM
+  "InvoiceData": [
+    {
+      "RefID": "1523250-INV25061800292", //key của hóa đơn (ko được phép trùng lặp)
+      "InvSeries": "1C25MMG",
+      "InvDate": "2025-06-19", //format: yyyy-MM-dd
+      "CurrencyCode": "VND",
+      "ExchangeRate": 1.0, //tỷ giá quy đổi giữa VND và ngoại tệ (nếu đơn vị dùng tiền VND thì mặc định là 1)
+      "PaymentMethodName": "TM/CK", //hình thức thanh toán (bắt buộc phải truyền)
+      "IsSendEmail": true, //dùng cho trường hợp muốn gửi email cho khách hàng sau khi phát hành hóa đơn
+      "ReceiverName": "Công ty demo",
+      "ReceiverEmail": "demo@gmail.com", //email khách hàng cần gửi hóa đơn sau khi phát hành
+      "BuyerLegalName": "Công ty demo", //tên công ty mua hàng
+      "BuyerTaxCode": "0101243150", //mã số thuế công ty mua hàng
+      "BuyerAddress": "P. Tam Phú Q. Thủ Đức Tp. HCM", //địa chỉ
+      "BuyerCode": "22034209", //mã khách hàng
+      "BuyerFullName": "Nguyễn Văn Test", //tên người mua hàng khách lẻ (cá nhân)
+      "BuyerEmail": "", //email người mua hàng (thuế quy định phải nhập đúng định dạng email, ko được chưa dấu cách, và chỉ được nhập 1 email duy nhất)
+      "BuyerPhoneNumber": "0978123456",
+      "CheckIn": "06/15/2024", //ngày đến (format: MM/dd/yyyy)
+      "CheckOut": "06/20/2024", //ngày đi (format: MM/dd/yyyy)
+      "RoomNo": "15",
+      "BuyerIDNumber": "068182000231", //căn cước công dân
+      "BuyerPassport": "", //số hộ chiếu
+      "BuyerBudgetCode": "", //mã quan hệ ngân sách
+      "TotalSaleAmountOC": 3300000, //SUM(AmountOC, "ItemType": 1) - SUM(AmountOC, "ItemType": 3)
+      "TotalSaleAmount": 3300000, //TotalSaleAmountOC * ExchangeRate
+      "TotalDiscountAmountOC": 0, //SUM(DiscountAmountOC) + SUM(AmountOC, "ItemType": 3)
+      "TotalDiscountAmount": 0, //TotalDiscountAmountOC * ExchangeRate
+      "TotalAmountWithoutVATOC": 3300000, //SUM(AmountWithoutVATOC, "ItemType": 1) - SUM(AmountWithoutVATOC, "ItemType": 3)
+      "TotalAmountWithoutVAT": 3300000, //TotalAmountWithoutVATOC * ExchangeRate
+      "TotalVATAmountOC": 266000, //SUM(VATAmountOC, "ItemType": 1) - SUM(VATAmountOC, "ItemType": 3)
+      "TotalVATAmount": 266000, //TotalVATAmountOC * ExchangeRate
+      "TotalAmountOC": 3566000, //TotalAmountWithoutVATOC + TotalVATAmountOC
+      "TotalAmount": 3566000, //TotalAmountOC * ExchangeRate
+      "TotalAmountInWords": "Ba triệu năm trăm sáu mươi sáu nghìn đồng chẵn.", //đọc giá trị từ trường TotalAmountOC
+      "OriginalInvoiceDetail": [
+        {
+          "ItemType": 1, //hàng hóa thông thường
+          "LineNumber": 1,
+          "SortOrder": 1,
+          "ItemCode": "",
+          "ItemName": "Thuê phòng",
+          "UnitName": "Đêm",
+          "Quantity": 2.0,
+          "UnitPrice": 1500000, //đơn giá trước thuế (trước chiết khấu)
+          "AmountOC": 3000000, //UnitPrice * Quantity
+          "Amount": 3000000, //AmountOC * ExchangeRate
+          "DiscountRate": 0, //tỷ lệ chiết khấu
+          "DiscountAmountOC": 0, //AmountOC * DiscountRate/100
+          "DiscountAmount": 0, //DiscountAmountOC * ExchangeRate
+          "AmountWithoutVATOC": 3000000, //AmountOC - DiscountAmountOC
+          "VATRateName": "8%", //thuế suất
+          "VATAmountOC": 240000, //AmountWithoutVATOC * 8/100
+          "VATAmount": 240000 //VATAmountOC * ExchangeRate
+        },
+        {
+          "ItemType": 1,
+          "LineNumber": 2,
+          "SortOrder": 2,
+          "ItemCode": "",
+          "ItemName": "Phí dịch vụ (5%)",
+          "UnitName": "Lần",
+          "Quantity": 1.0,
+          "UnitPrice": 200000,
+          "AmountOC": 200000,
+          "Amount": 200000,
+          "DiscountRate": 0,
+          "DiscountAmountOC": 0,
+          "DiscountAmount": 0,
+          "AmountWithoutVATOC": 200000,
+          "VATRateName": "8%",
+          "VATAmountOC": 16000,
+          "VATAmount": 16000
+        },
+        {
+          "ItemType": 1,
+          "LineNumber": 3,
+          "SortOrder": 3,
+          "ItemCode": "",
+          "ItemName": "thuê phòng",
+          "UnitName": "Đêm",
+          "Quantity": 1.0,
+          "UnitPrice": 100000,
+          "AmountOC": 100000,
+          "Amount": 100000,
+          "DiscountRate": 0,
+          "DiscountAmountOC": 0,
+          "DiscountAmount": 0,
+          "AmountWithoutVATOC": 100000,
+          "VATRateName": "10%",
+          "VATAmountOC": 10000,
+          "VATAmount": 10000
+        }
+      ],
+      "TaxRateInfo": [
+        {
+          "VATRateName": "8%",
+          "AmountWithoutVATOC": 3200000.0, //SUM(AmountWithoutVATOC, "VATRateName": "8%" và "ItemType": 1) - SUM(AmountWithoutVATOC, "VATRateName": "8%" và "ItemType": 3)
+          "VATAmountOC": 256000.0 //SUM(VATAmountOC, "VATRateName": "8%" và "ItemType": 1) - SUM(VATAmountOC, "VATRateName": "8%" và "ItemType": 3)
+        },
+        {
+          "VATRateName": "10%",
+          "AmountWithoutVATOC": 100000.0, //SUM(AmountWithoutVATOC, "VATRateName": "10%" và "ItemType": 1) - SUM(AmountWithoutVATOC, "VATRateName": "10%" và "ItemType": 3)
+          "VATAmountOC": 10000.0 //SUM(VATAmountOC, "VATRateName": "10%" và "ItemType": 1) - SUM(VATAmountOC, "VATRateName": "10%" và "ItemType": 3)
+        }
+      ],
+      "OptionUserDefined": {
+        "MainCurrency": "VND", //mặc định luôn luôn là VND
+        "AmountDecimalDigits": "2", //hiển thị số phần lẻ thập phân cho thành tiền quy đổi
+        "AmountOCDecimalDigits": "2", //hiển thị số phần lẻ thập phân cho thành tiền nguyên tệ
+        "UnitPriceOCDecimalDigits": "2", //hiển thị số phần lẻ thập phân cho đơn giá
+        "UnitPriceDecimalDigits": "2", //hiển thị số phần lẻ thập phân cho đơn giá
+        "QuantityDecimalDigits": "2", //hiển thị số phần lẻ thập phân cho số lượng
+        "CoefficientDecimalDigits": "2",
+        "ExchangRateDecimalDigits": "2",
+        "ClockDecimalDigits": "2"
+      }
+    }
+  ],
+  "PublishInvoiceData": []
+}

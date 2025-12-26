@@ -1,0 +1,123 @@
+﻿{
+  "SignType": 2, 
+  "InvoiceData": [
+    {
+      "RefID": "fc621f52-d5b0-44a1-b80f-6b6dfad9834a", 
+      "InvSeries": "1C25MMG",
+      "InvDate": "2025-06-19", 
+      "CurrencyCode": "VND",
+      "ExchangeRate": 1.0, 
+      "PaymentMethodName": "TM/CK", 
+      "IsSendEmail": true, 
+      "ReceiverName": "Công ty demo",
+      "ReceiverEmail": "demo@gmail.com", 
+      "BuyerLegalName": "Công ty demo", 
+      "BuyerTaxCode": "0101243150", 
+      "BuyerAddress": "P. Tam Phú Q. Thủ Đức Tp. HCM", 
+      "BuyerCode": "22034209", 
+      "BuyerFullName": "Nguyễn Văn Test", 
+      "BuyerEmail": "", 
+      "BuyerPhoneNumber": "0978123456",
+      "CheckIn": "06/15/2024", 
+      "CheckOut": "06/20/2024",
+      "RoomNo": "15",
+      "BuyerIDNumber": "068182000231", 
+      "BuyerPassport": "", 
+      "BuyerBudgetCode": "", 
+      "TotalSaleAmountOC": 3300000, 
+      "TotalSaleAmount": 3300000, 
+      "TotalDiscountAmountOC": 0, 
+      "TotalDiscountAmount": 0, 
+      "TotalAmountWithoutVATOC": 3300000, 
+      "TotalAmountWithoutVAT": 3300000, 
+      "TotalVATAmountOC": 266000, 
+      "TotalVATAmount": 266000, 
+      "TotalAmountOC": 3566000, 
+      "TotalAmount": 3566000, 
+      "TotalAmountInWords": "Ba triệu năm trăm sáu mươi sáu nghìn đồng chẵn.", 
+      "OriginalInvoiceDetail": [
+        {
+          "ItemType": 1, 
+          "LineNumber": 1,
+          "SortOrder": 1,
+          "ItemCode": "",
+          "ItemName": "Thuê phòng",
+          "UnitName": "Đêm",
+          "Quantity": 2.0,
+          "UnitPrice": 1500000, 
+          "AmountOC": 3000000, 
+          "Amount": 3000000, 
+          "DiscountRate": 0, 
+          "DiscountAmountOC": 0, 
+          "DiscountAmount": 0, 
+          "AmountWithoutVATOC": 3000000, 
+          "VATRateName": "8%", 
+          "VATAmountOC": 240000, 
+          "VATAmount": 240000 
+        },
+        {
+          "ItemType": 1,
+          "LineNumber": 2,
+          "SortOrder": 2,
+          "ItemCode": "",
+          "ItemName": "Phí dịch vụ (5%)",
+          "UnitName": "Lần",
+          "Quantity": 1.0,
+          "UnitPrice": 200000,
+          "AmountOC": 200000,
+          "Amount": 200000,
+          "DiscountRate": 0,
+          "DiscountAmountOC": 0,
+          "DiscountAmount": 0,
+          "AmountWithoutVATOC": 200000,
+          "VATRateName": "8%",
+          "VATAmountOC": 16000,
+          "VATAmount": 16000
+        },
+        {
+          "ItemType": 1,
+          "LineNumber": 3,
+          "SortOrder": 3,
+          "ItemCode": "",
+          "ItemName": "thuê phòng",
+          "UnitName": "Đêm",
+          "Quantity": 1.0,
+          "UnitPrice": 100000,
+          "AmountOC": 100000,
+          "Amount": 100000,
+          "DiscountRate": 0,
+          "DiscountAmountOC": 0,
+          "DiscountAmount": 0,
+          "AmountWithoutVATOC": 100000,
+          "VATRateName": "10%",
+          "VATAmountOC": 10000,
+          "VATAmount": 10000
+        }
+      ],
+      "TaxRateInfo": [
+        {
+          "VATRateName": "8%",
+          "AmountWithoutVATOC": 3200000.0, 
+          "VATAmountOC": 256000.0 
+        },
+        {
+          "VATRateName": "10%",
+          "AmountWithoutVATOC": 100000.0, 
+          "VATAmountOC": 10000.0 
+        }
+      ],
+      "OptionUserDefined": {
+        "MainCurrency": "VND", 
+        "AmountDecimalDigits": "2", 
+        "AmountOCDecimalDigits": "2", 
+        "UnitPriceOCDecimalDigits": "2", 
+        "UnitPriceDecimalDigits": "2", 
+        "QuantityDecimalDigits": "2", 
+        "CoefficientDecimalDigits": "2",
+        "ExchangRateDecimalDigits": "2",
+        "ClockDecimalDigits": "2"
+      }
+    }
+  ],
+  "PublishInvoiceData": []
+}

@@ -1,0 +1,86 @@
+{
+  "SignType": 2, 
+  "InvoiceData": [
+    {
+      "RefID": "000007", 
+      "InvSeries": "1C25MMG",
+      "InvDate": "2025-11-03", 
+      "CurrencyCode": "VND",
+      "ExchangeRate": 1.0, 
+      "PaymentMethodName": "TM/CK", 
+      "IsSendEmail": true,
+      "ReceiverName": "Pos Tester",
+      "ReceiverEmail": "bezpostester@gmail.com", 
+      "TotalSaleAmountOC": 105000,
+      "TotalSaleAmount": 105000, 
+      "TotalDiscountAmountOC": 0, 
+      "TotalDiscountAmount": 0,
+      "TotalAmountWithoutVATOC": 105000, 
+      "TotalAmountWithoutVAT": 105000,
+      "TotalVATAmountOC": 8400,
+      "TotalVATAmount": 8400,
+      "TotalAmountOC": 113400, 
+      "TotalAmount": 113400,
+      "TotalAmountInWords": "Total ", 
+      "OriginalInvoiceDetail": [
+        {
+          "ItemType": 1, ( 1: Product;2: Promotion;3: Discount;4: Description )
+          "LineNumber": 1,
+          "SortOrder": 1,
+          "ItemCode": "",
+          "ItemName": "Food Thong",
+          "UnitName": "",
+          "Quantity": 1.0,
+          "UnitPrice": 100000, 
+          "AmountOC": 100000, 
+          "Amount": 100000,
+          "DiscountRate": 0,
+          "DiscountAmountOC": 0, 
+          "DiscountAmount": 0, 
+          "AmountWithoutVATOC": 10000, 
+          "VATRateName": "8%", 
+          "VATAmountOC": 8000, 
+          "VATAmount": 8000 
+        },
+        {
+          "ItemType": 1,
+          "LineNumber": 2,
+          "SortOrder": 2,
+          "ItemCode": "",
+          "ItemName": "Food Thong (5%)",
+          "UnitName": "",
+          "Quantity": 1.0,
+          "UnitPrice": 5000,
+          "AmountOC": 5000,
+          "Amount": 5000,
+          "DiscountRate": 0,
+          "DiscountAmountOC": 0,
+          "DiscountAmount": 0,
+          "AmountWithoutVATOC": 5000,
+          "VATRateName": "8%",
+          "VATAmountOC": 400,
+          "VATAmount": 400
+        }
+      ],
+      "TaxRateInfo": [
+        {
+          "VATRateName": "8%",
+          "AmountWithoutVATOC": 105000.0,
+          "VATAmountOC": 8400.0 
+        }
+      ],
+      "OptionUserDefined": {
+        "MainCurrency": "VND",
+        "AmountDecimalDigits": "2",
+        "AmountOCDecimalDigits": "2", 
+        "UnitPriceOCDecimalDigits": "2",
+        "UnitPriceDecimalDigits": "2",
+        "QuantityDecimalDigits": "2",
+        "CoefficientDecimalDigits": "2",
+        "ExchangRateDecimalDigits": "2",
+        "ClockDecimalDigits": "2"
+      }
+    }
+  ],
+  "PublishInvoiceData": []
+}
